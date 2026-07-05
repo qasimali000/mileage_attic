@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+distance_cache.db
+.env
+venv/
+.DS_Store

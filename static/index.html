@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Mileage Attic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FBF8E9;
+    --ink: #111111;
+    --orange: #F2B84B;
+    --green: #7ED957;
+    --shadow: 6px 6px 0 var(--ink);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: "Archivo", "Helvetica Neue", sans-serif;
+    font-size: 15px;
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    max-width: 980px;
+    margin: 0 auto;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    -webkit-text-stroke: 1px var(--ink);
+    text-shadow: 2px 2px 0 var(--orange);
+  }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    padding: 7px 22px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: default;
+  }
+  .pill.active { background: var(--orange); }
+
+  /* checkerboard divider */
+  .checker {
+    height: 18px;
+    margin: 34px 0;
+    background:
+      repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 0 0 / 36px 36px;
+    background-position: 0 -9px;
+  }
+
+  /* starburst */
+  .star {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    background: var(--orange);
+    border: 1.5px solid var(--ink);
+    clip-path: polygon(50% 0%, 61% 32%, 93% 22%, 72% 50%, 93% 78%, 61% 68%, 50% 100%, 39% 68%, 7% 78%, 28% 50%, 7% 22%, 39% 32%);
+    z-index: 0;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 46px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.05;
+    margin: 28px 0 6px;
+  }
+  .blurb { max-width: 560px; line-height: 1.55; margin: 12px 0 24px; }
+
+  .hero { position: relative; }
+  .hero .star { top: -6px; right: 10px; }
+
+  /* card w/ hard offset shadow */
+  .card {
+    position: relative;
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    z-index: 1;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .field { flex: 1; min-width: 160px; }
+  .field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    border: 1.5px solid var(--ink);
+    background: var(--cream);
+    padding: 10px 12px;
+    font-family: "Space Mono", monospace;
+    font-size: 14px;
+    outline: none;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field input:focus, .field select:focus { background: #fff; }
+  .field select {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+      linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+    background-size: 6px 6px;
+    background-repeat: no-repeat;
+  }
+  textarea {
+    width: 100%;
+    height: 300px;
+    font-family: "Space Mono", monospace;
+    font-size: 14px;
+    border: 1.5px solid var(--ink);
+    background: var(--cream);
+    padding: 14px;
+    resize: vertical;
+    outline: none;
+  }
+  textarea:focus { background: #fff; }
+
+  .btn {
+    display: inline-block;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    padding: 13px 34px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.06s;
+  }
+  .btn:active { transform: translate(2px, 2px); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn.primary { background: var(--green); }
+  .btn.wide { width: 100%; text-align: center; }
+  .row { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .row .btn { flex: 1; min-width: 160px; }
+
+  .section-title {
+    font-size: 24px;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: 0 0 20px;
+  }
+
+  /* progress */
+  #progressBox { margin-top: 34px; }
+  .progress-track {
+    height: 26px;
+    border: 1.5px solid var(--ink);
+    background: #fff;
+    padding: 3px;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background:
+      repeating-linear-gradient(45deg, var(--orange) 0 12px, var(--ink) 12px 14px);
+    transition: width 0.2s;
+  }
+  .status-log {
+    margin-top: 12px;
+    height: 140px;
+    overflow-y: auto;
+    background: var(--ink);
+    color: var(--cream);
+    font-family: "Space Mono", monospace;
+    font-size: 12px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--ink);
+    white-space: pre-wrap;
+  }
+
+  .warnbox {
+    margin-top: 24px;
+    background: var(--orange);
+    border: 1.5px solid var(--ink);
+    box-shadow: var(--shadow);
+    padding: 14px 18px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* results */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 22px;
+    margin-bottom: 30px;
+  }
+  .stat {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+  .stat .label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .stat .value {
+    font-family: "Space Mono", monospace;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .stat.grand { background: var(--green); }
+
+  .daily-list { margin: 0 0 30px; }
+  .daily-list .day {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1.5px solid var(--ink);
+    padding: 9px 2px;
+    font-family: "Space Mono", monospace;
+    font-size: 14px;
+  }
+  .daily-list .day b { font-family: "Archivo", sans-serif; text-transform: uppercase; }
+
+  .table-wrap {
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    box-shadow: var(--shadow);
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th {
+    background: var(--ink);
+    color: var(--cream);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-align: left;
+    padding: 10px 12px;
+    position: sticky;
+    top: 0;
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid #e5e2d0; font-family: "Space Mono", monospace; font-size: 12.5px; }
+  tr.bad td { background: #ffd9d9; color: #a00000; }
+
+  .hidden { display: none !important; }
+
+  /* password overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(17,17,17,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .dialog {
+    position: relative;
+    background: var(--cream);
+    border: 1.5px solid var(--ink);
+    box-shadow: var(--shadow);
+    padding: 34px 30px 30px;
+    width: 400px;
+    max-width: 100%;
+  }
+  .dialog .star { width: 64px; height: 64px; top: -32px; right: -24px; }
+  .dialog h2 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  .dialog p { margin: 0 0 18px; line-height: 1.5; }
+  input[type="password"] {
+    width: 100%;
+    border: 1.5px solid var(--ink);
+    background: #fff;
+    padding: 12px 14px;
+    font-family: "Space Mono", monospace;
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  .err {
+    color: #a00000;
+    font-weight: 700;
+    font-size: 13px;
+    min-height: 18px;
+    margin-bottom: 8px;
+  }
+
+  footer {
+    margin-top: 60px;
+    text-align: center;
+    font-family: "Space Mono", monospace;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="pwOverlay">
+  <div class="dialog">
+    <div class="star"></div>
+    <h2>Members Only</h2>
+    <p>Enter the password to open the Mileage Attic.</p>
+    <input type="password" id="pwInput" placeholder="password" autofocus>
+    <div class="err" id="pwErr"></div>
+    <button class="btn primary wide" id="pwOk">Let Me In</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo">The Mileage Attic</div>
+  <nav>
+    <span class="pill">Home</span>
+    <span class="pill active">Calculate</span>
+    <span class="pill">Help</span>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="hero">
+    <div class="star"></div>
+    <h1>Notes In,<br>Mileage Out.</h1>
+    <p class="blurb">Paste your mileage notes below — date headers, one postcode per
+      line, wait times after the postcode. We'll work out every journey, the daily
+      totals and your waiting pay, then hand you a tidy CSV.</p>
+
+    <div class="card">
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">Your Name</span>
+          <input type="text" id="nameInput" placeholder="e.g. Qasim">
+        </label>
+        <label class="field">
+          <span class="field-label">Month</span>
+          <select id="monthInput">
+            <option>January</option><option>February</option><option>March</option>
+            <option>April</option><option>May</option><option>June</option>
+            <option>July</option><option>August</option><option>September</option>
+            <option>October</option><option>November</option><option>December</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Rate £ / Mile</span>
+          <input type="number" id="rateInput" value="0.45" step="0.01" min="0.01">
+        </label>
+      </div>
+      <textarea id="notes" spellcheck="false" placeholder="6 June
+
+GL1 1YF
+GL1 4SY
+GL4 6AU
+GL4 6HG - 1 hour 10 minutes wait
+GL4 6JQ"></textarea>
+      <div class="row">
+        <button class="btn primary" id="calcBtn">Calculate</button>
+        <button class="btn" id="clearBtn">Clear</button>
+        <button class="btn" id="csvBtn" disabled>Download CSV</button>
+      </div>
+    </div>
+
+    <div id="progressBox" class="hidden">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="status-log" id="statusLog"></div>
+    </div>
+
+    <div class="warnbox hidden" id="warnBox"></div>
+  </div>
+
+  <div class="checker hidden" id="divider"></div>
+
+  <div id="resultBox" class="hidden">
+    <h2 class="section-title">You Might Owe…</h2>
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <h2 class="section-title">Day By Day…</h2>
+    <div class="daily-list" id="dailyList"></div>
+
+    <h2 class="section-title">Every Journey…</h2>
+    <div class="table-wrap">
+      <table id="resultTable">
+        <thead>
+          <tr><th>Date</th><th>From</th><th>To</th><th>Miles</th><th>Daily £</th><th>Wait</th><th>Wait £</th><th>Notes</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer id="statusCell">READY.</footer>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let password = sessionStorage.getItem("mc95pw") || "";
+  let csvContent = "";
+
+  if (password) $("pwOverlay").classList.add("hidden");
+
+  function tryPassword() {
+    const v = $("pwInput").value;
+    if (!v) return;
+    password = v;
+    sessionStorage.setItem("mc95pw", v);
+    $("pwOverlay").classList.add("hidden");
+  }
+  $("pwOk").addEventListener("click", tryPassword);
+  $("pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") tryPassword(); });
+
+  function log(msg) {
+    const el = $("statusLog");
+    el.textContent += msg + "\n";
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setProgress(i, total) {
+    $("progressFill").style.width = total ? `${Math.round((i / total) * 100)}%` : "0%";
+  }
+
+  function statCard(label, value, cls = "") {
+    return `<div class="stat ${cls}"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+  }
+
+  function showResults(data) {
+    const tbody = $("resultTable").querySelector("tbody");
+    tbody.innerHTML = "";
+    for (const r of data.rows) {
+      const tr = document.createElement("tr");
+      if (r.miles === null) tr.className = "bad";
+      const cells = [r.date, r.from, r.to,
+        r.miles === null ? "ERR" : r.miles,
+        r.amount, r.wait_time, r.wait_amount, r.note];
+      for (const c of cells) {
+        const td = document.createElement("td");
+        td.textContent = c ?? "";
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    const s = data.summary;
+    if (s) {
+      const wm = s.total_wait_minutes;
+      const waitStr = wm >= 60 ? `${Math.floor(wm / 60)}h ${wm % 60}m` : `${wm}m`;
+      $("summaryGrid").innerHTML =
+        statCard("Total Miles", s.total_miles.toFixed(2)) +
+        statCard(`Mileage @ £${s.rate_per_mile.toFixed(2)}/mi`, "£" + s.total_amount.toFixed(2)) +
+        statCard(`Waiting ${waitStr}`, "£" + s.total_wait_amount.toFixed(2)) +
+        statCard("Grand Total", "£" + s.grand_total.toFixed(2), "grand");
+      $("dailyList").innerHTML = data.daily.map(d =>
+        `<div class="day"><b>${d.date}</b><span>${d.miles.toFixed(2)} mi — £${d.amount.toFixed(2)}</span></div>`
+      ).join("");
+    }
+    $("divider").classList.remove("hidden");
+    $("resultBox").classList.remove("hidden");
+  }
+
+  async function calculate() {
+    const notes = $("notes").value.trim();
+    if (!notes) { alert("Paste some notes first."); return; }
+
+    $("calcBtn").disabled = true;
+    $("csvBtn").disabled = true;
+    $("resultBox").classList.add("hidden");
+    $("divider").classList.add("hidden");
+    $("warnBox").classList.add("hidden");
+    $("warnBox").innerHTML = "";
+    $("progressBox").classList.remove("hidden");
+    $("statusLog").textContent = "";
+    $("statusCell").textContent = "WORKING…";
+    setProgress(0, 1);
+    log("> RUNNING MILEAGE.EXE");
+
+    const warnings = [];
+    try {
+      const resp = await fetch("/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password, notes,
+          rate_per_mile: parseFloat($("rateInput").value) || 0.45,
+          name: $("nameInput").value,
+          month: $("monthInput").value,
+        }),
+      });
+      if (resp.status === 401) {
+        sessionStorage.removeItem("mc95pw");
+        password = "";
+        $("pwErr").textContent = "Wrong password — try again.";
+        $("pwOverlay").classList.remove("hidden");
+        return;
+      }
+      if (!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const evMatch = chunk.match(/^event: (.+)$/m);
+          const dataMatch = chunk.match(/^data: (.+)$/m);
+          if (!evMatch || !dataMatch) continue;
+          const ev = evMatch[1];
+          const data = JSON.parse(dataMatch[1]);
+          if (ev === "progress") {
+            setProgress(data.i, data.total);
+            const m = data.miles === null ? "!! " + data.status : data.miles + " mi";
+            log(`[${data.i}/${data.total}] ${data.from} -> ${data.to}  ${m}${data.status === "cached" ? " *" : ""}`);
+          } else if (ev === "warning") {
+            warnings.push(data.message);
+            log("WARNING: " + data.message);
+          } else if (ev === "done") {
+            csvContent = data.csv;
+            if (data.rows.length === 0) {
+              log("No journeys found in input.");
+              $("statusCell").textContent = "NO JOURNEYS FOUND.";
+            } else {
+              showResults(data);
+              $("csvBtn").disabled = false;
+              $("statusCell").textContent = `DONE — ${data.rows.length} JOURNEYS.`;
+              log("DONE.");
+            }
+          }
+        }
+      }
+      if (warnings.length) {
+        $("warnBox").innerHTML = "<b>⚠ Heads up:</b><br>" +
+          warnings.map(w => "• " + w.replace(/</g, "&lt;")).join("<br>");
+        $("warnBox").classList.remove("hidden");
+      }
+    } catch (e) {
+      log("ERROR: " + e.message);
+      $("statusCell").textContent = "ERROR.";
+    } finally {
+      $("calcBtn").disabled = false;
+    }
+  }
+
+  $("calcBtn").addEventListener("click", calculate);
+  $("clearBtn").addEventListener("click", () => {
+    $("notes").value = "";
+    $("resultBox").classList.add("hidden");
+    $("divider").classList.add("hidden");
+    $("progressBox").classList.add("hidden");
+    $("warnBox").classList.add("hidden");
+    $("statusCell").textContent = "READY.";
+    $("csvBtn").disabled = true;
+  });
+  $("csvBtn").addEventListener("click", () => {
+    const clean = (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const parts = [clean($("nameInput").value), clean($("monthInput").value), "mileage"].filter(Boolean);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = parts.join("_") + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // remember name + rate, default month to current
+  $("monthInput").value = new Date().toLocaleString("en-GB", { month: "long" });
+  $("nameInput").value = localStorage.getItem("mc95name") || "";
+  if (localStorage.getItem("mc95rate")) $("rateInput").value = localStorage.getItem("mc95rate");
+  $("nameInput").addEventListener("change", () => localStorage.setItem("mc95name", $("nameInput").value));
+  $("rateInput").addEventListener("change", () => localStorage.setItem("mc95rate", $("rateInput").value));
+</script>
+</body>
+</html>
