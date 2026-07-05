@@ -11,16 +11,13 @@ Paste your notes — date headers, one postcode per line, wait times scribbled a
    ```
    6 June
 
-   GL1 1YF
-   GL1 4SY
    GL4 6HG - 1 hour 10 minutes wait
    GL4 6JQ
 
-   Email for barbara finch   <- non-postcode lines are ignored with a warning
    ```
 
    - A date line (`6 June`, `28th June`) starts a new day.
-   - Consecutive postcodes chain into journeys (`GL1 1YF → GL1 4SY`, `GL1 4SY → GL4 6HG`, …).
+   - Consecutive postcodes chain into journeys (`GL4 0RH → GL1 4SY`, `GL1 4SY → GL4 6HG`, …).
    - A blank line breaks the chain (new trip, no journey across the gap).
    - Wait annotations (`- 30 min wait`, `wait 1 hour 10 minutes`) attach to the journey leaving that stop.
 
