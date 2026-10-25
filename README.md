@@ -41,7 +41,6 @@ Paste your notes — date headers, one postcode per line, wait times scribbled a
 ```bash
 pip install -r requirements.txt
 export ORS_API_KEY="your-openrouteservice-key"   # free key from openrouteservice.org
-export APP_PASSWORD="pick-a-password"
 python app.py
 # open http://localhost:5001
 ```
@@ -53,17 +52,32 @@ Deployed on [Railway](https://railway.com) using the included `Procfile` (gunico
 | Variable | Purpose |
 |----------|---------|
 | `ORS_API_KEY` | OpenRouteService API key for driving distances |
-| `APP_PASSWORD` | Shared password gating the app |
+| `DATABASE_URL` | Railway Postgres connection string (users, sessions, run log). Without it, a local `users.db` SQLite file is used |
+| `SECRET_KEY` | Long random string used to hash login codes and session tokens |
+| `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` | Send login codes via the Gmail API over HTTPS (Railway Hobby blocks SMTP). Get the refresh token with `scripts/gmail_token.py` |
+| `EMAIL_FROM` | Sender, e.g. `The Mileage Attic <you@gmail.com>` |
+| `ADMIN_TOKEN` | Bearer token for `GET /admin/stats` |
+
+Alternatively set `RESEND_API_KEY` (needs a verified domain) instead of the Gmail vars. With no provider configured locally, codes are printed to the server console.
+
+## Login & usage stats
+
+Users enter their email, receive a 6-digit code (10 min expiry, 5 attempts, rate-limited), and get a 30-day session cookie. Each calculation is logged against the user's email.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<your-app>/admin/stats
+```
+
+returns total users, new users (7d/30d), active users (7d/30d), total runs and miles.
 
 Note: the filesystem on Railway is ephemeral, so the distance cache resets on each deploy and rebuilds itself with use.
 
 ## API
 
-`POST /calculate` — JSON body:
+`POST /calculate` — requires a session cookie from `/auth/verify`. JSON body:
 
 ```json
 {
-  "password": "…",
   "notes": "6 June\nGL1 1YF\nGL1 4SY\n…",
   "rate_per_mile": 0.45,
   "name": "Your Name",

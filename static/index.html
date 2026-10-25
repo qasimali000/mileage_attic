@@ -304,6 +304,19 @@
     text-transform: uppercase;
   }
   .dialog p { margin: 0 0 18px; line-height: 1.5; }
+  input[type="email"], input[type="text"].codebox, #codeInput {
+    width: 100%;
+    border: 1.5px solid var(--ink);
+    background: #fff;
+    padding: 12px 14px;
+    font-family: "Space Mono", monospace;
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  #codeInput { letter-spacing: 6px; }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .fine { font-size: 12px; margin: 14px 0 0 !important; }
   input[type="password"] {
     width: 100%;
     border: 1.5px solid var(--ink);
@@ -336,10 +349,21 @@
   <div class="dialog">
     <div class="star"></div>
     <h2>Members Only</h2>
-    <p>Enter the password to open the Mileage Attic.</p>
-    <input type="password" id="pwInput" placeholder="password" autofocus>
-    <div class="err" id="pwErr"></div>
-    <button class="btn primary wide" id="pwOk">Let Me In</button>
+    <div id="stepEmail">
+      <p>Enter your email and we'll send you a 6-digit code to open the Mileage Attic.</p>
+      <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autofocus>
+      <input type="text" id="hpInput" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="err" id="emailErr"></div>
+      <button class="btn primary wide" id="emailOk">Send Me A Code</button>
+      <p class="fine">We store your email to send login codes and count how many people use the app. Nothing else, and we don't share it.</p>
+    </div>
+    <div id="stepCode" class="hidden">
+      <p>We sent a code to <b id="codeTo"></b>. It expires in 10 minutes.</p>
+      <input type="text" id="codeInput" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+      <div class="err" id="codeErr"></div>
+      <button class="btn primary wide" id="codeOk">Let Me In</button>
+      <p class="fine"><a href="#" id="resend">Resend code</a> · <a href="#" id="changeEmail">Use a different email</a></p>
+    </div>
   </div>
 </div>
 
@@ -427,20 +451,65 @@ GL4 6JQ"></textarea>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  let password = sessionStorage.getItem("mc95pw") || "";
   let csvContent = "";
+  let loginEmail = "";
 
-  if (password) $("pwOverlay").classList.add("hidden");
+  async function post(url, data) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    return { ok: r.ok, status: r.status, data: j };
+  }
 
-  function tryPassword() {
-    const v = $("pwInput").value;
-    if (!v) return;
-    password = v;
-    sessionStorage.setItem("mc95pw", v);
+  function showLogin(msg) {
+    $("stepEmail").classList.remove("hidden");
+    $("stepCode").classList.add("hidden");
+    $("emailErr").textContent = msg || "";
+    $("pwOverlay").classList.remove("hidden");
+  }
+
+  fetch("/auth/me").then((r) => { if (r.ok) $("pwOverlay").classList.add("hidden"); });
+
+  async function sendCode() {
+    const email = $("emailInput").value.trim();
+    if (!email) return;
+    $("emailOk").disabled = true;
+    const r = await post("/auth/request-code", { email, website: $("hpInput").value });
+    $("emailOk").disabled = false;
+    if (!r.ok) { $("emailErr").textContent = r.data.error || "Something went wrong."; return; }
+    loginEmail = email;
+    $("codeTo").textContent = email;
+    $("codeErr").textContent = "";
+    $("codeInput").value = "";
+    $("stepEmail").classList.add("hidden");
+    $("stepCode").classList.remove("hidden");
+    $("codeInput").focus();
+  }
+
+  async function submitCode() {
+    const code = $("codeInput").value.trim();
+    if (!code) return;
+    $("codeOk").disabled = true;
+    const r = await post("/auth/verify", { email: loginEmail, code });
+    $("codeOk").disabled = false;
+    if (!r.ok) { $("codeErr").textContent = r.data.error || "Something went wrong."; return; }
     $("pwOverlay").classList.add("hidden");
   }
-  $("pwOk").addEventListener("click", tryPassword);
-  $("pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") tryPassword(); });
+
+  $("emailOk").addEventListener("click", sendCode);
+  $("emailInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendCode(); });
+  $("codeOk").addEventListener("click", submitCode);
+  $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitCode(); });
+  $("resend").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const r = await post("/auth/request-code", { email: loginEmail });
+    $("codeErr").textContent = r.ok ? "New code sent." : (r.data.error || "Could not resend.");
+  });
+  $("changeEmail").addEventListener("click", (e) => { e.preventDefault(); showLogin(""); });
 
   function log(msg) {
     const el = $("statusLog");
@@ -511,17 +580,14 @@ GL4 6JQ"></textarea>
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          password, notes,
+          notes,
           rate_per_mile: parseFloat($("rateInput").value) || 0.45,
           name: $("nameInput").value,
           month: $("monthInput").value,
         }),
       });
       if (resp.status === 401) {
-        sessionStorage.removeItem("mc95pw");
-        password = "";
-        $("pwErr").textContent = "Wrong password — try again.";
-        $("pwOverlay").classList.remove("hidden");
+        showLogin("Session expired — sign in again.");
         return;
       }
       if (!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
