@@ -348,10 +348,11 @@
   <div class="dialog">
     <div class="star"></div>
     <h2>Members Only</h2>
-    <p>Enter your email and phone number to open the Mileage Attic.</p>
+    <p>Enter your email and UK mobile number to open the Mileage Attic.</p>
     <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autofocus>
-    <input type="tel" id="phoneInput" placeholder="phone number" autocomplete="tel">
+    <input type="tel" id="phoneInput" placeholder="UK mobile, e.g. 07123 456789" autocomplete="tel">
     <input type="text" id="hpInput" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div id="tsBox" style="margin-bottom:14px"></div>
     <div class="err" id="emailErr"></div>
     <button class="btn primary wide" id="emailOk">Let Me In</button>
     <p class="fine">We store your email and phone number to count how many people use the app and to contact you about it. We don't share them. <a href="/privacy" target="_blank">Privacy</a></p>
@@ -440,6 +441,7 @@ GL4 6JQ"></textarea>
   <footer id="statusCell">READY.</footer>
 </div>
 
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <script>
   const $ = (id) => document.getElementById(id);
   let csvContent = "";
@@ -460,6 +462,19 @@ GL4 6JQ"></textarea>
     $("pwOverlay").classList.remove("hidden");
   }
 
+  let tsWidget = null;
+  let tsToken = "";
+  function initTurnstile(siteKey) {
+    if (!siteKey) return;
+    if (!window.turnstile) { setTimeout(() => initTurnstile(siteKey), 200); return; }
+    tsWidget = turnstile.render("#tsBox", {
+      sitekey: siteKey,
+      callback: (t) => { tsToken = t; },
+      "expired-callback": () => { tsToken = ""; },
+    });
+  }
+  fetch("/auth/config").then((r) => r.json()).then((c) => initTurnstile(c.turnstile_site_key)).catch(() => {});
+
   fetch("/auth/me").then((r) => { if (r.ok) $("pwOverlay").classList.add("hidden"); });
 
   async function register() {
@@ -467,9 +482,13 @@ GL4 6JQ"></textarea>
     const phone = $("phoneInput").value.trim();
     if (!email || !phone) { $("emailErr").textContent = "Enter both your email and phone number."; return; }
     $("emailOk").disabled = true;
-    const r = await post("/auth/register", { email, phone, website: $("hpInput").value });
+    const r = await post("/auth/register", { email, phone, website: $("hpInput").value, turnstile: tsToken });
     $("emailOk").disabled = false;
-    if (!r.ok) { $("emailErr").textContent = r.data.error || "Something went wrong."; return; }
+    if (!r.ok) {
+      $("emailErr").textContent = r.data.error || "Something went wrong.";
+      if (tsWidget !== null) { turnstile.reset(tsWidget); tsToken = ""; }
+      return;
+    }
     $("pwOverlay").classList.add("hidden");
   }
 

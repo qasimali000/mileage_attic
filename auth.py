@@ -7,6 +7,9 @@ import secrets
 import time
 from functools import wraps
 
+import dns.exception
+import dns.resolver
+import requests
 from flask import Blueprint, g, jsonify, request
 
 import db
@@ -15,12 +18,22 @@ bp = Blueprint("auth", __name__)
 
 SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
+TURNSTILE_SECRET = os.environ.get("TURNSTILE_SECRET", "")
+ON_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
 COOKIE = "attic_session"
 
 SESSION_TTL = 30 * 24 * 3600
 IP_LIMIT = (10, 3600)  # sign-ups per IP, window seconds
 
-PHONE_RE = re.compile(r"^\+?\d{7,15}$")
+UK_MOBILE_RE = re.compile(r"^7[1-9]\d{8}$")  # national number after the leading 0 / +44
+EMAIL_TYPOS = {
+    "gmial.com": "gmail.com", "gmai.com": "gmail.com", "gamil.com": "gmail.com",
+    "gmail.co": "gmail.com", "gmail.con": "gmail.com", "gnail.com": "gmail.com",
+    "hotmial.com": "hotmail.com", "hotmal.com": "hotmail.com", "hotmail.co": "hotmail.com",
+    "yahooo.com": "yahoo.com", "yaho.com": "yahoo.com", "yahoo.con": "yahoo.com",
+    "outlok.com": "outlook.com", "outlook.co": "outlook.com", "outlook.con": "outlook.com",
+}
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s.]{2,}$")
 DISPOSABLE = {
     "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
@@ -39,6 +52,55 @@ def _now():
 
 def _client_ip():
     return request.remote_addr or "unknown"
+
+
+def normalise_uk_mobile(raw):
+    """-> '+447...' or None. Accepts 07..., +447..., 00447... with any spacing."""
+    p = re.sub(r"[\s\-().]", "", raw)
+    if p.startswith("+44"):
+        p = p[3:]
+    elif p.startswith("0044"):
+        p = p[4:]
+    elif p.startswith("0"):
+        p = p[1:]
+    else:
+        return None
+    if p.startswith("0"):  # +44 (0)7... written out
+        p = p[1:]
+    if not UK_MOBILE_RE.fullmatch(p) or len(set(p[1:])) < 3:
+        return None
+    return "+44" + p
+
+
+def email_domain_ok(domain):
+    """False only when DNS says the domain can't receive mail; fails open on timeouts."""
+    for rtype in ("MX", "A"):
+        try:
+            dns.resolver.resolve(domain, rtype, lifetime=3)
+            return True
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            continue
+        except dns.resolver.NoNameservers:
+            return False
+        except dns.exception.DNSException:
+            return True
+    return False
+
+
+def turnstile_ok(token):
+    if not TURNSTILE_SECRET:
+        return not ON_RAILWAY  # unset: allow locally, refuse in production
+    if not token:
+        return False
+    try:
+        r = requests.post(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data={"secret": TURNSTILE_SECRET, "response": token, "remoteip": _client_ip()},
+            timeout=10,
+        )
+        return bool(r.json().get("success"))
+    except Exception:
+        return False
 
 
 def _error(msg, status):
@@ -86,13 +148,24 @@ def register():
     if body.get("website"):  # honeypot: real users never fill this
         return jsonify({"ok": True})
     email = str(body.get("email", "")).strip().lower()
-    phone = re.sub(r"[\s\-().]", "", str(body.get("phone", "")))
     if not EMAIL_RE.match(email) or len(email) > 254:
         return _error("Enter a valid email address.", 400)
-    if email.rsplit("@", 1)[1] in DISPOSABLE:
+    domain = email.rsplit("@", 1)[1]
+    if domain in EMAIL_TYPOS:
+        return _error(f"Did you mean @{EMAIL_TYPOS[domain]}?", 400)
+    if domain in DISPOSABLE:
         return _error("Disposable email addresses aren't accepted.", 400)
-    if not PHONE_RE.match(phone):
-        return _error("Enter a valid phone number.", 400)
+    phone = normalise_uk_mobile(str(body.get("phone", "")))
+    if not phone:
+        return _error("Enter a valid UK mobile number (e.g. 07123 456789).", 400)
+    if not turnstile_ok(body.get("turnstile")):
+        return _error("Verification failed. Please refresh and try again.", 400)
+    if not email_domain_ok(domain):
+        return _error("That email domain can't receive mail. Check for typos.", 400)
+    owner = db.execute("SELECT email FROM users WHERE phone=? AND email<>?",
+                       (phone, email), fetch="one")
+    if owner:
+        return _error("That phone number is already registered with a different email.", 400)
 
     _cleanup()
     now = _now()
@@ -119,6 +192,11 @@ def register():
         secure=request.headers.get("X-Forwarded-Proto", request.scheme) == "https",
     )
     return resp
+
+
+@bp.route("/auth/config")
+def config():
+    return jsonify({"turnstile_site_key": TURNSTILE_SITE_KEY})
 
 
 @bp.route("/auth/me")
