@@ -1,4 +1,4 @@
-"""Email + phone sign-in (unverified), session cookies, usage stats."""
+"""Shared password + name/email/phone sign-in (unverified), session cookies, usage stats."""
 import hashlib
 import hmac
 import os
@@ -18,6 +18,7 @@ bp = Blueprint("auth", __name__)
 
 SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
 TURNSTILE_SECRET = os.environ.get("TURNSTILE_SECRET", "")
 ON_RAILWAY = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
@@ -147,6 +148,22 @@ def register():
     body = request.get_json(silent=True) or {}
     if body.get("website"):  # honeypot: real users never fill this
         return jsonify({"ok": True})
+    now = _now()
+    n_ip = db.execute(
+        "SELECT COUNT(*) FROM code_requests WHERE ip=? AND created_at>?",
+        (_client_ip(), now - IP_LIMIT[1]), fetch="one")[0]
+    if n_ip >= IP_LIMIT[0]:
+        return _error("Too many attempts. Please wait a few minutes.", 429)
+
+    password = str(body.get("password", ""))
+    if not APP_PASSWORD or not hmac.compare_digest(password.encode(), APP_PASSWORD.encode()):
+        db.execute("INSERT INTO code_requests (ip, email, created_at) VALUES (?,?,?)",
+                   (_client_ip(), "", now))  # failed guesses count toward the IP limit
+        return _error("Wrong password.", 403)
+
+    name = " ".join(str(body.get("name", "")).split())
+    if not 2 <= len(name) <= 80:
+        return _error("Enter your name.", 400)
     email = str(body.get("email", "")).strip().lower()
     if not EMAIL_RE.match(email) or len(email) > 254:
         return _error("Enter a valid email address.", 400)
@@ -168,20 +185,15 @@ def register():
         return _error("That phone number is already registered with a different email.", 400)
 
     _cleanup()
-    now = _now()
-    n_ip = db.execute(
-        "SELECT COUNT(*) FROM code_requests WHERE ip=? AND created_at>?",
-        (_client_ip(), now - IP_LIMIT[1]), fetch="one")[0]
-    if n_ip >= IP_LIMIT[0]:
-        return _error("Too many attempts. Please wait a few minutes.", 429)
     db.execute("INSERT INTO code_requests (ip, email, created_at) VALUES (?,?,?)",
                (_client_ip(), email, now))
 
     db.execute(
-        "INSERT INTO users (email, phone, first_seen, last_seen, login_count) VALUES (?,?,?,?,1) "
-        "ON CONFLICT(email) DO UPDATE SET phone=excluded.phone, last_seen=excluded.last_seen, "
-        "login_count=users.login_count+1",
-        (email, phone, now, now),
+        "INSERT INTO users (email, name, phone, first_seen, last_seen, login_count) "
+        "VALUES (?,?,?,?,?,1) "
+        "ON CONFLICT(email) DO UPDATE SET name=excluded.name, phone=excluded.phone, "
+        "last_seen=excluded.last_seen, login_count=users.login_count+1",
+        (email, name, phone, now, now),
     )
     token = secrets.token_urlsafe(32)
     db.execute("INSERT INTO sessions (token_hash, email, expires_at) VALUES (?,?,?)",

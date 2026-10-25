@@ -304,7 +304,7 @@
     text-transform: uppercase;
   }
   .dialog p { margin: 0 0 18px; line-height: 1.5; }
-  input[type="email"], input[type="tel"] {
+  input[type="email"], input[type="tel"], #nameInput2 {
     width: 100%;
     border: 1.5px solid var(--ink);
     background: #fff;
@@ -348,14 +348,16 @@
   <div class="dialog">
     <div class="star"></div>
     <h2>Members Only</h2>
-    <p>Enter your email and UK mobile number to open the Mileage Attic.</p>
-    <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autofocus>
+    <p>Enter the access password and your details to open the Mileage Attic. All fields are required.</p>
+    <input type="password" id="pwInput" placeholder="access password" autocomplete="off" autofocus>
+    <input type="text" id="nameInput2" placeholder="your full name" autocomplete="name" maxlength="80">
+    <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
     <input type="tel" id="phoneInput" placeholder="UK mobile, e.g. 07123 456789" autocomplete="tel">
     <input type="text" id="hpInput" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
     <div id="tsBox" style="margin-bottom:14px"></div>
     <div class="err" id="emailErr"></div>
     <button class="btn primary wide" id="emailOk">Let Me In</button>
-    <p class="fine">We store your email and phone number to count how many people use the app and to contact you about it. We don't share them. <a href="/privacy" target="_blank">Privacy</a></p>
+    <p class="fine">We store your name, email and phone number to count how many people use the app and to contact you about it. We don't share them. <a href="/privacy" target="_blank">Privacy</a></p>
   </div>
 </div>
 
@@ -478,11 +480,16 @@ GL4 6JQ"></textarea>
   fetch("/auth/me").then((r) => { if (r.ok) $("pwOverlay").classList.add("hidden"); });
 
   async function register() {
+    const password = $("pwInput").value;
+    const name = $("nameInput2").value.trim();
     const email = $("emailInput").value.trim();
     const phone = $("phoneInput").value.trim();
-    if (!email || !phone) { $("emailErr").textContent = "Enter both your email and phone number."; return; }
+    if (!password || !name || !email || !phone) {
+        $("emailErr").textContent = "All fields are required.";
+        return;
+    }
     $("emailOk").disabled = true;
-    const r = await post("/auth/register", { email, phone, website: $("hpInput").value, turnstile: tsToken });
+    const r = await post("/auth/register", { password, name, email, phone, website: $("hpInput").value, turnstile: tsToken });
     $("emailOk").disabled = false;
     if (!r.ok) {
       $("emailErr").textContent = r.data.error || "Something went wrong.";
@@ -493,6 +500,8 @@ GL4 6JQ"></textarea>
   }
 
   $("emailOk").addEventListener("click", register);
+  $("pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
+  $("nameInput2").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
   $("emailInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
   $("phoneInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
 

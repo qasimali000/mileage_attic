@@ -14,7 +14,7 @@ _lock = threading.Lock()
 
 SCHEMA = [
     "CREATE TABLE IF NOT EXISTS users ("
-    "email TEXT PRIMARY KEY, phone TEXT NOT NULL DEFAULT '', first_seen BIGINT NOT NULL, "
+    "email TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', first_seen BIGINT NOT NULL, "
     "last_seen BIGINT NOT NULL, login_count INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS sessions ("
     "token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at BIGINT NOT NULL)",
@@ -55,3 +55,8 @@ def execute(sql, params=(), fetch=None):
 def init():
     for stmt in SCHEMA:
         execute(stmt)
+    # add `name` to users tables created before it existed
+    try:
+        execute("ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+    except Exception:
+        pass  # column already there

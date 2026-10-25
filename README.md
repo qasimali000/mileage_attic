@@ -41,6 +41,7 @@ Paste your notes — date headers, one postcode per line, wait times scribbled a
 ```bash
 pip install -r requirements.txt
 export ORS_API_KEY="your-openrouteservice-key"   # free key from openrouteservice.org
+export APP_PASSWORD="pick-a-password"
 python app.py
 # open http://localhost:5001
 ```
@@ -52,13 +53,14 @@ Deployed on [Railway](https://railway.com) using the included `Procfile` (gunico
 | Variable | Purpose |
 |----------|---------|
 | `ORS_API_KEY` | OpenRouteService API key for driving distances |
+| `APP_PASSWORD` | Shared access password users must enter alongside their details |
 | `DATABASE_URL` | Railway Postgres connection string (users, sessions, run log). Without it, a local `users.db` SQLite file is used |
 | `SECRET_KEY` | Long random string used to hash login codes and session tokens |
 | `ADMIN_TOKEN` | Bearer token for `GET /admin/stats` |
 
 ## Login & usage stats
 
-Users enter their email and phone number (not verified) and get a 30-day session cookie. Both are stored in the `users` table. Each calculation is logged against the user's email.
+Users enter the shared access password plus their name, email and UK mobile number (details are not verified; Cloudflare Turnstile blocks bots) and get a 30-day session cookie. The details are stored in the `users` table. Each calculation is logged against the user's email.
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<your-app>/admin/stats
