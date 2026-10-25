@@ -225,6 +225,11 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/privacy")
+def privacy():
+    return send_from_directory(app.static_folder, "privacy.html")
+
+
 @app.route("/calculate", methods=["POST"])
 @auth.login_required
 def calculate():
