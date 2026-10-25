@@ -7,12 +7,17 @@ import time
 from urllib.parse import quote
 
 import requests
-from flask import Flask, Response, request, send_from_directory
+from flask import Flask, Response, g, request, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+import auth
+import db
 
 app = Flask(__name__, static_folder="static")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+app.register_blueprint(auth.bp)
 
 ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 DB_PATH = os.environ.get("CACHE_DB", "distance_cache.db")
 
 RATE_PER_MILE = 0.45
@@ -220,13 +225,16 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.route("/privacy")
+def privacy():
+    return send_from_directory(app.static_folder, "privacy.html")
+
+
 @app.route("/calculate", methods=["POST"])
+@auth.login_required
 def calculate():
     body = request.get_json(silent=True) or {}
-    if not APP_PASSWORD or body.get("password") != APP_PASSWORD:
-        return Response(
-            json.dumps({"error": "ACCESS DENIED"}), status=401, mimetype="application/json"
-        )
+    email = g.email
     notes = body.get("notes", "")
     try:
         rate_per_mile = float(body.get("rate_per_mile") or RATE_PER_MILE)
@@ -319,6 +327,10 @@ def calculate():
             "waiting_rate_per_hour": WAITING_RATE_PER_HOUR,
         }
 
+        try:
+            auth.log_run(email, len(rows), total_miles)
+        except Exception as e:
+            print(f"[auth] failed to log run: {e}", flush=True)
         yield sse("done", {"rows": rows, "daily": daily, "summary": summary,
                            "csv": build_csv(rows, summary, claimant_name, claim_month)})
 
@@ -327,6 +339,7 @@ def calculate():
 
 
 init_db()
+db.init()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5001)), threaded=True)

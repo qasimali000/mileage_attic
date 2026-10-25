@@ -50,17 +50,29 @@ Deployed on [Railway](https://railway.com) using the included `Procfile` (gunico
 | Variable | Purpose |
 |----------|---------|
 | `ORS_API_KEY` | OpenRouteService API key for driving distances |
-| `APP_PASSWORD` | Shared password gating the app |
+| `APP_PASSWORD` | Shared access password users must enter alongside their details |
+| `DATABASE_URL` | Railway Postgres connection string (users, sessions, run log). Without it, a local `users.db` SQLite file is used |
+| `SECRET_KEY` | Long random string used to hash login codes and session tokens |
+| `ADMIN_TOKEN` | Bearer token for `GET /admin/stats` |
+
+## Login & usage stats
+
+Users enter the shared access password plus their name, email and UK mobile number (details are not verified; Cloudflare Turnstile blocks bots) and get a 30-day session cookie. The details are stored in the `users` table. Each calculation is logged against the user's email.
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<your-app>/admin/stats
+```
+
+returns total users, new users (7d/30d), active users (7d/30d), total runs and miles.
 
 Note: the filesystem on Railway is ephemeral, so the distance cache resets on each deploy and rebuilds itself with use.
 
 ## API
 
-`POST /calculate` — JSON body:
+`POST /calculate` — requires a session cookie from `/auth/verify`. JSON body:
 
 ```json
 {
-  "password": "…",
   "notes": "6 June\nGL1 1YF\nGL1 4SY\n…",
   "rate_per_mile": 0.45,
   "name": "Your Name",

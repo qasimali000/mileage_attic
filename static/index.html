@@ -304,6 +304,18 @@
     text-transform: uppercase;
   }
   .dialog p { margin: 0 0 18px; line-height: 1.5; }
+  input[type="email"], input[type="tel"], #nameInput2 {
+    width: 100%;
+    border: 1.5px solid var(--ink);
+    background: #fff;
+    padding: 12px 14px;
+    font-family: "Space Mono", monospace;
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .fine { font-size: 12px; margin: 14px 0 0 !important; }
   input[type="password"] {
     width: 100%;
     border: 1.5px solid var(--ink);
@@ -336,10 +348,16 @@
   <div class="dialog">
     <div class="star"></div>
     <h2>Members Only</h2>
-    <p>Enter the password to open the Mileage Attic.</p>
-    <input type="password" id="pwInput" placeholder="password" autofocus>
-    <div class="err" id="pwErr"></div>
-    <button class="btn primary wide" id="pwOk">Let Me In</button>
+    <p>Enter the access password and your details to open the Mileage Attic. All fields are required.</p>
+    <input type="password" id="pwInput" placeholder="access password" autocomplete="off" autofocus>
+    <input type="text" id="nameInput2" placeholder="your full name" autocomplete="name" maxlength="80">
+    <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
+    <input type="tel" id="phoneInput" placeholder="UK mobile, e.g. 07123 456789" autocomplete="tel">
+    <input type="text" id="hpInput" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div id="tsBox" style="margin-bottom:14px"></div>
+    <div class="err" id="emailErr"></div>
+    <button class="btn primary wide" id="emailOk">Let Me In</button>
+    <p class="fine">We store your name, email and phone number to count how many people use the app and to contact you about it. We don't share them. <a href="/privacy" target="_blank">Privacy</a></p>
   </div>
 </div>
 
@@ -425,22 +443,67 @@ GL4 6JQ"></textarea>
   <footer id="statusCell">READY.</footer>
 </div>
 
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <script>
   const $ = (id) => document.getElementById(id);
-  let password = sessionStorage.getItem("mc95pw") || "";
   let csvContent = "";
 
-  if (password) $("pwOverlay").classList.add("hidden");
+  async function post(url, data) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    return { ok: r.ok, status: r.status, data: j };
+  }
 
-  function tryPassword() {
-    const v = $("pwInput").value;
-    if (!v) return;
-    password = v;
-    sessionStorage.setItem("mc95pw", v);
+  function showLogin(msg) {
+    $("emailErr").textContent = msg || "";
+    $("pwOverlay").classList.remove("hidden");
+  }
+
+  let tsWidget = null;
+  let tsToken = "";
+  function initTurnstile(siteKey) {
+    if (!siteKey) return;
+    if (!window.turnstile) { setTimeout(() => initTurnstile(siteKey), 200); return; }
+    tsWidget = turnstile.render("#tsBox", {
+      sitekey: siteKey,
+      callback: (t) => { tsToken = t; },
+      "expired-callback": () => { tsToken = ""; },
+    });
+  }
+  fetch("/auth/config").then((r) => r.json()).then((c) => initTurnstile(c.turnstile_site_key)).catch(() => {});
+
+  fetch("/auth/me").then((r) => { if (r.ok) $("pwOverlay").classList.add("hidden"); });
+
+  async function register() {
+    const password = $("pwInput").value;
+    const name = $("nameInput2").value.trim();
+    const email = $("emailInput").value.trim();
+    const phone = $("phoneInput").value.trim();
+    if (!password || !name || !email || !phone) {
+        $("emailErr").textContent = "All fields are required.";
+        return;
+    }
+    $("emailOk").disabled = true;
+    const r = await post("/auth/register", { password, name, email, phone, website: $("hpInput").value, turnstile: tsToken });
+    $("emailOk").disabled = false;
+    if (!r.ok) {
+      $("emailErr").textContent = r.data.error || "Something went wrong.";
+      if (tsWidget !== null) { turnstile.reset(tsWidget); tsToken = ""; }
+      return;
+    }
     $("pwOverlay").classList.add("hidden");
   }
-  $("pwOk").addEventListener("click", tryPassword);
-  $("pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") tryPassword(); });
+
+  $("emailOk").addEventListener("click", register);
+  $("pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
+  $("nameInput2").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
+  $("emailInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
+  $("phoneInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
 
   function log(msg) {
     const el = $("statusLog");
@@ -511,17 +574,14 @@ GL4 6JQ"></textarea>
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          password, notes,
+          notes,
           rate_per_mile: parseFloat($("rateInput").value) || 0.45,
           name: $("nameInput").value,
           month: $("monthInput").value,
         }),
       });
       if (resp.status === 401) {
-        sessionStorage.removeItem("mc95pw");
-        password = "";
-        $("pwErr").textContent = "Wrong password — try again.";
-        $("pwOverlay").classList.remove("hidden");
+        showLogin("Session expired — sign in again.");
         return;
       }
       if (!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
