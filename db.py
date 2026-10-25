@@ -14,11 +14,8 @@ _lock = threading.Lock()
 
 SCHEMA = [
     "CREATE TABLE IF NOT EXISTS users ("
-    "email TEXT PRIMARY KEY, first_seen BIGINT NOT NULL, last_seen BIGINT NOT NULL, "
-    "login_count INTEGER NOT NULL DEFAULT 0)",
-    "CREATE TABLE IF NOT EXISTS login_codes ("
-    "email TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at BIGINT NOT NULL, "
-    "attempts INTEGER NOT NULL DEFAULT 0)",
+    "email TEXT PRIMARY KEY, phone TEXT NOT NULL DEFAULT '', first_seen BIGINT NOT NULL, "
+    "last_seen BIGINT NOT NULL, login_count INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS sessions ("
     "token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at BIGINT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS code_requests ("

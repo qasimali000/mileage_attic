@@ -54,15 +54,11 @@ Deployed on [Railway](https://railway.com) using the included `Procfile` (gunico
 | `ORS_API_KEY` | OpenRouteService API key for driving distances |
 | `DATABASE_URL` | Railway Postgres connection string (users, sessions, run log). Without it, a local `users.db` SQLite file is used |
 | `SECRET_KEY` | Long random string used to hash login codes and session tokens |
-| `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` / `GMAIL_REFRESH_TOKEN` | Send login codes via the Gmail API over HTTPS (Railway Hobby blocks SMTP). Get the refresh token with `scripts/gmail_token.py` |
-| `EMAIL_FROM` | Sender, e.g. `The Mileage Attic <you@gmail.com>` |
 | `ADMIN_TOKEN` | Bearer token for `GET /admin/stats` |
-
-Alternatively set `RESEND_API_KEY` (needs a verified domain) instead of the Gmail vars. With no provider configured locally, codes are printed to the server console.
 
 ## Login & usage stats
 
-Users enter their email, receive a 6-digit code (10 min expiry, 5 attempts, rate-limited), and get a 30-day session cookie. Each calculation is logged against the user's email.
+Users enter their email and phone number (not verified) and get a 30-day session cookie. Both are stored in the `users` table. Each calculation is logged against the user's email.
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<your-app>/admin/stats

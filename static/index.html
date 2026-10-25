@@ -304,7 +304,7 @@
     text-transform: uppercase;
   }
   .dialog p { margin: 0 0 18px; line-height: 1.5; }
-  input[type="email"], input[type="text"].codebox, #codeInput {
+  input[type="email"], input[type="tel"] {
     width: 100%;
     border: 1.5px solid var(--ink);
     background: #fff;
@@ -314,7 +314,6 @@
     outline: none;
     margin-bottom: 14px;
   }
-  #codeInput { letter-spacing: 6px; }
   .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
   .fine { font-size: 12px; margin: 14px 0 0 !important; }
   input[type="password"] {
@@ -349,21 +348,13 @@
   <div class="dialog">
     <div class="star"></div>
     <h2>Members Only</h2>
-    <div id="stepEmail">
-      <p>Enter your email and we'll send you a 6-digit code to open the Mileage Attic.</p>
-      <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autofocus>
-      <input type="text" id="hpInput" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <div class="err" id="emailErr"></div>
-      <button class="btn primary wide" id="emailOk">Send Me A Code</button>
-      <p class="fine">We store your email to send login codes and count how many people use the app. Nothing else, and we don't share it. <a href="/privacy" target="_blank">Privacy</a></p>
-    </div>
-    <div id="stepCode" class="hidden">
-      <p>We sent a code to <b id="codeTo"></b>. It expires in 10 minutes.</p>
-      <input type="text" id="codeInput" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
-      <div class="err" id="codeErr"></div>
-      <button class="btn primary wide" id="codeOk">Let Me In</button>
-      <p class="fine"><a href="#" id="resend">Resend code</a> · <a href="#" id="changeEmail">Use a different email</a></p>
-    </div>
+    <p>Enter your email and phone number to open the Mileage Attic.</p>
+    <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autofocus>
+    <input type="tel" id="phoneInput" placeholder="phone number" autocomplete="tel">
+    <input type="text" id="hpInput" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div class="err" id="emailErr"></div>
+    <button class="btn primary wide" id="emailOk">Let Me In</button>
+    <p class="fine">We store your email and phone number to count how many people use the app and to contact you about it. We don't share them. <a href="/privacy" target="_blank">Privacy</a></p>
   </div>
 </div>
 
@@ -452,7 +443,6 @@ GL4 6JQ"></textarea>
 <script>
   const $ = (id) => document.getElementById(id);
   let csvContent = "";
-  let loginEmail = "";
 
   async function post(url, data) {
     const r = await fetch(url, {
@@ -466,50 +456,26 @@ GL4 6JQ"></textarea>
   }
 
   function showLogin(msg) {
-    $("stepEmail").classList.remove("hidden");
-    $("stepCode").classList.add("hidden");
     $("emailErr").textContent = msg || "";
     $("pwOverlay").classList.remove("hidden");
   }
 
   fetch("/auth/me").then((r) => { if (r.ok) $("pwOverlay").classList.add("hidden"); });
 
-  async function sendCode() {
+  async function register() {
     const email = $("emailInput").value.trim();
-    if (!email) return;
+    const phone = $("phoneInput").value.trim();
+    if (!email || !phone) { $("emailErr").textContent = "Enter both your email and phone number."; return; }
     $("emailOk").disabled = true;
-    const r = await post("/auth/request-code", { email, website: $("hpInput").value });
+    const r = await post("/auth/register", { email, phone, website: $("hpInput").value });
     $("emailOk").disabled = false;
     if (!r.ok) { $("emailErr").textContent = r.data.error || "Something went wrong."; return; }
-    loginEmail = email;
-    $("codeTo").textContent = email;
-    $("codeErr").textContent = "";
-    $("codeInput").value = "";
-    $("stepEmail").classList.add("hidden");
-    $("stepCode").classList.remove("hidden");
-    $("codeInput").focus();
-  }
-
-  async function submitCode() {
-    const code = $("codeInput").value.trim();
-    if (!code) return;
-    $("codeOk").disabled = true;
-    const r = await post("/auth/verify", { email: loginEmail, code });
-    $("codeOk").disabled = false;
-    if (!r.ok) { $("codeErr").textContent = r.data.error || "Something went wrong."; return; }
     $("pwOverlay").classList.add("hidden");
   }
 
-  $("emailOk").addEventListener("click", sendCode);
-  $("emailInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendCode(); });
-  $("codeOk").addEventListener("click", submitCode);
-  $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") submitCode(); });
-  $("resend").addEventListener("click", async (e) => {
-    e.preventDefault();
-    const r = await post("/auth/request-code", { email: loginEmail });
-    $("codeErr").textContent = r.ok ? "New code sent." : (r.data.error || "Could not resend.");
-  });
-  $("changeEmail").addEventListener("click", (e) => { e.preventDefault(); showLogin(""); });
+  $("emailOk").addEventListener("click", register);
+  $("emailInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
+  $("phoneInput").addEventListener("keydown", (e) => { if (e.key === "Enter") register(); });
 
   function log(msg) {
     const el = $("statusLog");
