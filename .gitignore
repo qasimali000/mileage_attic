@@ -4,3 +4,4 @@ distance_cache.db
 .env
 venv/
 .DS_Store
+users.db
