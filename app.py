@@ -29,7 +29,7 @@ RETRIES = 3
 RETRY_BACKOFF = 1.5
 
 POSTCODES_IO_BASE = "https://api.postcodes.io/postcodes/"
-ORS_URL = "https://api.openrouteservice.org/v2/directions/driving-car"
+ORS_URL = "https://api.heigit.org/openrouteservice/v2/directions/driving-car"  # api.openrouteservice.org retired 2026-11-24
 
 POSTCODE_RE = re.compile(r"^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b(.*)$", re.I)
 DATE_RE = re.compile(
